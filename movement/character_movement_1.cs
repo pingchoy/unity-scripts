@@ -5,18 +5,22 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     public float moveSpeed;
-    public bool isMoving;
-    public Vector2 input;
-    private Animator animator;
-    private Coroutine idleCoroutine;
+    public BoxCollider2D boxCollider;
+    public Rigidbody2D body;
+    public Vector3 debugDirection;
+    public LayerMask obstacleMask;
+    public Animator animator;
+    private Vector2 direction;
+
     private void Awake()
     {
-        animator = GetComponent<Animator>();
+
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        moveSpeed = 10;
         Debug.Log("Hello World!");
     }
 
@@ -24,64 +28,69 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
 
-        float horizontalInput = Input.GetAxisRaw("Horizontal");
-        float veritcalInput = Input.GetAxisRaw("Vertical");
+        float xInput = Input.GetAxis("Horizontal");
+        float yInput = Input.GetAxis("Vertical");
 
-        Vector2 newMovement = new Vector2(horizontalInput, veritcalInput);
+        direction = new Vector2(xInput, yInput).normalized;
+        
 
+    }
 
-        if (newMovement != Vector2.zero)
+    private void FixedUpdate()
+    {
+        debugDirection = direction;
+        animator.SetFloat("moveX", direction.x);
+        animator.SetFloat("moveY", direction.y);
+
+        if (direction.sqrMagnitude > 0.1f)
         {
-            Debug.Log("This is newMovement.x:" + newMovement.x);
-            Debug.Log("This is newMovement.y:" + newMovement.y);
-            if (newMovement.x != 0) newMovement.y = 0;
-
-
-            animator.CrossFade("Walk", 0.1f);
             animator.SetBool("isMoving", true);
-            StopAllCoroutines();
-               
-            animator.SetFloat("moveX", newMovement.x);
-            animator.SetFloat("moveY", newMovement.y);
-            // If moving left, then we need to flip the sprite
-            if (newMovement.x == -1)
-            {
-                transform.localScale = new Vector3(-1, 1, 1);
-            }
-            else if (newMovement.x == 1)
-            {
-                transform.localScale = new Vector3(1, 1, 1);
-            }
-
-            var targetPos = transform.position;
-            targetPos.x += newMovement.x;
-            targetPos.y += newMovement.y;
-
-            StartCoroutine(Move(targetPos));
-
-            input = newMovement;
-
 
         }
         else
         {
-            animator.CrossFade("Idle", 1);
             animator.SetBool("isMoving", false);
         }
 
-    }
 
-
-    IEnumerator Move(Vector3 targetPos)
-    {
-  
-        while ((targetPos - transform.position).sqrMagnitude > Mathf.Epsilon)
+        bool isColliding = checkIsColliding();
+        if (isColliding)
         {
-            transform.position = Vector3.MoveTowards(transform.position, targetPos, moveSpeed * Time.deltaTime);
-            yield return null;
+            body.linearVelocity = Vector2.zero;
         }
+        else
+        {
 
-        transform.position = targetPos;
-    
+            body.linearVelocity = direction * moveSpeed;
+        }
     }
+
+
+    bool checkIsColliding()
+
+    {
+        Vector3 v3Direction = direction;
+
+        bool isColliding = Physics2D.OverlapAreaAll(boxCollider.bounds.min + v3Direction * 0.5f, boxCollider.bounds.max + v3Direction * 0.5f, obstacleMask).Length > 0;
+        return isColliding;
+    }
+
+    void OnDrawGizmos()
+    {
+        if (boxCollider != null)
+        {
+            // Calculate the shifted corners based on the direction
+            Vector2 pointA = boxCollider.bounds.min + debugDirection ;
+            Vector2 pointB = boxCollider.bounds.max + debugDirection;
+
+            // Set Gizmo color and draw a rectangle
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(new Vector3(pointA.x, pointA.y, 0), new Vector3(pointB.x, pointA.y, 0));
+            Gizmos.DrawLine(new Vector3(pointA.x, pointA.y, 0), new Vector3(pointA.x, pointB.y, 0));
+            Gizmos.DrawLine(new Vector3(pointB.x, pointA.y, 0), new Vector3(pointB.x, pointB.y, 0));
+            Gizmos.DrawLine(new Vector3(pointA.x, pointB.y, 0), new Vector3(pointB.x, pointB.y, 0));
+        }
+    }
+
+
 }
